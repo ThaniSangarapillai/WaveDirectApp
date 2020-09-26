@@ -251,3 +251,39 @@ def users_set(*args, **kwargs):
     if kwargs["update_cookie"][0] == True:
         res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
     return res
+
+@app.route('/refer', methods={'POST'})
+@check_auth
+def refer(*args, **kwargs):
+    references = db.References
+    content = request.json
+
+    temp_user = users.find_one({"Email": content['email']})
+    if temp_user != None:
+        return {"error": "01", "message": "Already a account created for this email"}, 401
+
+    temp_reference = references.find_one({"Email Address": content['email']})
+    if temp_reference != None:
+        return {"error": "02", "message": "Reference email already used"}, 401
+
+    temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
+        'x-wave-auth']
+    user = users.find_one(
+        {"_id": auth.find_one({"token": temp_token})['user_id']}
+        , {"_id": False, "Password": False})
+
+    references.insert_one({
+
+        "First Name": content['first'],
+        "Last Name": content['last'],
+        'Phone Number': content['phone'],
+        'Email Address': content['email'],
+        'Referred By': user['Account #']
+
+    })
+    res = make_response({"message": "ok"}, 200)
+    if kwargs["update_cookie"][0] == True:
+        res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
+    return res
+
+
