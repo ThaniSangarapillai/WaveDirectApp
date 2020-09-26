@@ -103,3 +103,26 @@ def logout():
         res.set_cookie('x-wave-auth', expires=0)
     return res
 
+@app.route('/test', methods=['GET'])
+def test():
+    users = db.Users
+    print(users.find_one())
+    return jsonify(users.find_one())
+
+@app.route('/packages', methods=['GET'])
+def packages():
+    packages = db.Packages
+    print(list(packages.find({})))
+    return jsonify(list(packages.find({}, {'_id': False})))
+
+@app.route('/outages', methods=['GET'])
+def outages():
+    outages = db.Outages
+    print(list(outages.find({})))
+    return jsonify(list(outages.find({}, {'_id': False})))
+
+@app.route('/users', methods=['GET'])
+def users():
+    users = db.Users
+    print(list(users.find({})))
+    return jsonify(list(users.find({}, {'_id': False})))
