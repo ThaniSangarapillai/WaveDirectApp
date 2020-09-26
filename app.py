@@ -49,6 +49,17 @@ def check_auth(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def check_super(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        print("in decorator")
+        temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers['x-wave-auth']
+        get_hash = auth.find_one({"token": temp_token})
+        if get_hash['super'] == False:
+            return {"message": "Not a superadmin"}, 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 
 
 @app.route("/")
@@ -79,12 +90,13 @@ def register():
         'Phone': content['phone'],
         'Package_id': content['package'],
         "AP_id": content["ap"],
-        "Password": password
+        "Password": password,
+        "super": False
     })
     user_object = users.find_one({"Email": content['email']})
     auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
     auth_token = "wave_" + auth_token
-    auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800)
+    auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800), "super": user_object['super']
     })
     return {'auth': auth_token}, 200, {'Set-Cookie': 'x-wave-auth={}'.format(auth_token)}
 
@@ -100,7 +112,7 @@ def login():
      if auth.find_one({"user_id": user_object['_id']}):
          auth.delete_one({"user_id": user_object['_id']})
 
-     auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800)
+     auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800), "super": user_object['super']
                       })
      res = make_response({'auth': auth_token}, 200)
      res.set_cookie('x-wave-auth', auth_token, max_age=172800)
