@@ -156,6 +156,21 @@ def outages_get():
     print(list(outages.find({})))
     return jsonify(list(outages.find({}, {'_id': False})))
 
+@app.route('/outages/set', methods=['POST'])
+def outages_set():
+    outages = db.Outages
+    content = request.json
+    outages.update_one(
+        {'_id': outages.find_one({'ID': content['ID']})['_id']},
+        {"$set": {
+            'ID' : content['ID'],
+            'Name' : content['Name'],
+            'Google Maps latitude/longtitude' : content['Google Maps latitude/longtitude'],
+            'Radius (km)' : content['Radius (km)'],
+            'Status' : content['Status'],
+        }}
+    )
+    return {"message": "ok"}, 200
 
 @app.route('/users/get', methods=['GET'])
 @check_auth
