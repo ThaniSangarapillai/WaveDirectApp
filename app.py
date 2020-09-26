@@ -38,7 +38,7 @@ def check_auth(f):
                 return res
             else:
                 print("authed")
-                if get_hash['time'] + 86400 > time.time():
+                if get_hash['time'] - 86400 < time.time():
                     print("updating time")
                     auth.update_one({
                         '_id': get_hash['_id']
@@ -46,6 +46,9 @@ def check_auth(f):
                         {'$set': {'time': int(time.time() + 172800)}})
                     res = make_response({'auth': get_hash['token']}, 200)
                     res.set_cookie('x-wave-auth', get_hash['token'], max_age=172800)
+                    kwargs['update_cookie'] = (True, get_hash['token'])
+                else:
+                    kwargs['update_cookie'] = (False, None)
         return f(*args, **kwargs)
     return decorated_function
 
@@ -68,8 +71,11 @@ def hello_world():
 
 @app.route('/json', methods=['GET'])
 @check_auth
-def send_json():
-    return jsonify({'texts': "hello"})
+def send_json(*args, **kwargs):
+    res = make_response({'texts':"hello"})
+    if kwargs["update_cookie"][0] == True:
+        res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
+    return res
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -132,71 +138,93 @@ def logout():
 
 
 @app.route('/test', methods=['GET'])
-def test():
+def test(*args, **kwargs):
     users = db.Users
     print(users.find_one())
     return jsonify(users.find_one())
 
 
 @app.route('/packages/get', methods=['GET'])
-def packages_get():
+def packages_get(*args, **kwargs):
     packages = db.Packages
     print(list(packages.find({})))
     return jsonify(list(packages.find({}, {'_id': False})))
 
 @app.route('/packages/set', methods=["POST"])
-def packages_set():
+@check_auth
+@check_super
+def packages_set(*args, **kwargs):
     packages = db.Packages
     content = request.json
     packages.update_one(
-        {'_id': packages.find_one({'ID':content['ID']})['_id']},
-        {"$set": {
-            'ID' : content['ID'],
-            'Name' : content['Name'],
-            'Data Limit' : content['Data Limit'],
-            'Upload speed (Mbps)' : content['Upload speed (Mbps)'],
-            'Download  speed (Mbps)' : content['Download speed (Mbps)'],
-        }}
+        {'ID': content['ID']},
+        {
+            "$set": {
+                'ID' : content['ID'],
+                'Name' : content['Name'],
+                'Data Limit' : content['Data Limit'],
+                'Upload speed (Mbps)' : content['Upload speed (Mbps)'],
+                'Download  speed (Mbps)' : content['Download speed (Mbps)'],
+            }
+        },
+        upsert=True
     )
-    return {"message": "ok"}, 200
+
+    res = make_response({"message": "ok"}, 200)
+    if kwargs["update_cookie"][0] == True:
+        res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
+    return res
 
 
 @app.route('/outages/get', methods=['GET'])
-def outages_get():
+def outages_get(*args, **kwargs):
     outages = db.Outages
     print(list(outages.find({})))
     return jsonify(list(outages.find({}, {'_id': False})))
 
 @app.route('/outages/set', methods=['POST'])
-def outages_set():
+@check_auth
+@check_super
+def outages_set(*args, **kwargs):
     outages = db.Outages
     content = request.json
+
     outages.update_one(
-        {'_id': outages.find_one({'ID': content['ID']})['_id']},
-        {"$set": {
-            'ID' : content['ID'],
-            'Name' : content['Name'],
-            'Google Maps latitude/longtitude' : content['Google Maps latitude/longtitude'],
-            'Radius (km)' : content['Radius (km)'],
-            'Status' : content['Status'],
-        }}
+        {'ID': content['ID']},
+        {
+            "$set": {
+                'ID' : content['ID'],
+                'Name' : content['Name'],
+                'Google Maps latitude/longtitude' : content['Google Maps latitude/longtitude'],
+                'Radius (km)' : content['Radius (km)'],
+                'Status' : content['Status'],
+            }
+        },
+        upsert=True
     )
-    return {"message": "ok"}, 200
+    res = make_response({"message": "ok"}, 200)
+    if kwargs["update_cookie"][0] == True:
+        res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
+    return res
 
 @app.route('/users/get', methods=['GET'])
 @check_auth
-def users_get():
+def users_get(*args, **kwargs):
     print("before user")
     temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
         'x-wave-auth']
     user = users.find_one(
         {"_id": auth.find_one({"token": temp_token})['user_id']}
     , {"_id": False, "Password": False})
-    return jsonify(user)
+
+    res = make_response(user, 200)
+    if kwargs["update_cookie"][0] == True:
+        res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
+    return res
 
 @app.route('/users/set', methods=['POST'])
 @check_auth
-def users_set():
+def users_set(*args, **kwargs):
     content = request.json
     print("before user")
     temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
@@ -215,4 +243,7 @@ def users_set():
             'Package_id': content['package'],
         }}
     )
-    return {"message": "ok"}, 200
+    res = make_response({"message": "ok"}, 200)
+    if kwargs["update_cookie"][0] == True:
+        res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
+    return res
