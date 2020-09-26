@@ -15,7 +15,6 @@ users = db.Users
 auth = db.Auth
 print(users.find_one())
 
-
 def check_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
