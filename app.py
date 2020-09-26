@@ -15,8 +15,6 @@ users = db.Users
 auth = db.Auth
 print(users.find_one())
 
-<<<<<<< HEAD
-=======
 def check_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -110,7 +108,6 @@ def test():
     users = db.Users
     print(users.find_one())
     return jsonify(users.find_one())
->>>>>>> d676de18311990dbe94c6ccf45ce7792bc8388a4
 
 @app.route('/packages', methods=['GET'])
 def packages():
