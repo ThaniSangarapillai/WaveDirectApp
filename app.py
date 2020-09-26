@@ -11,7 +11,10 @@ def hello_world():
 def send_json():
     return jsonify({'texts': "hello"})
 
+
 client = pymongo.MongoClient(
    "mongodb+srv://Avatars:QrQnDDetR8cceWAS@cluster0.g15s2.mongodb.net/<dbname>?retryWrites=true&w=majority")
-db = client.test
+db = client.WaveDirectBackend
+users = db.Users
+print(users.find_one())
 
