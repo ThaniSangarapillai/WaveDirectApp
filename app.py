@@ -127,14 +127,31 @@ def test():
     return jsonify(users.find_one())
 
 
-@app.route('/packages', methods=['GET'])
-def packages():
+@app.route('/packages/get', methods=['GET'])
+def packages_get():
     packages = db.Packages
     print(list(packages.find({})))
     return jsonify(list(packages.find({}, {'_id': False})))
 
-@app.route('/outages', methods=['GET'])
-def outages():
+@app.route('/packages/set', methods=["POST"])
+def packages_set():
+    packages = db.Packages
+    content = request.json
+    packages.update_one(
+        {'_id': packages.find_one({'ID':content['ID']})['_id']},
+        {"$set": {
+            'ID' : content['ID'],
+            'Name' : content['Name'],
+            'Data Limit' : content['Data Limit'],
+            'Upload speed (Mbps)' : content['Upload speed (Mbps)'],
+            'Download  speed (Mbps)' : content['Download speed (Mbps)'],
+        }}
+    )
+    return {"message": "ok"}, 200
+
+
+@app.route('/outages/get', methods=['GET'])
+def outages_get():
     outages = db.Outages
     print(list(outages.find({})))
     return jsonify(list(outages.find({}, {'_id': False})))
