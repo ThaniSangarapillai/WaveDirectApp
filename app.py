@@ -9,10 +9,20 @@ db = client.WaveDirectBackend
 users = db.Users
 print(users.find_one())
 
-@app.route('/offers', methods=['GET'])
-def offers():
+@app.route('/packages', methods=['GET'])
+def packages():
     packages = db.Packages
-    return jsonify(list(packages.find({})))
+    print(list(packages.find({})))
+    return jsonify(list(packages.find({}, {'_id': False})))
 
+@app.route('/outages', methods=['GET'])
+def outages():
+    outages = db.Outages
+    print(list(outages.find({})))
+    return jsonify(list(outages.find({}, {'_id': False})))
 
-
+@app.route('/users', methods=['GET'])
+def users():
+    users = db.Users
+    print(list(users.find({})))
+    return jsonify(list(users.find({}, {'_id': False})))
