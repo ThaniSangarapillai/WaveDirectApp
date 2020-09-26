@@ -17,7 +17,7 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="JupyterTrust" id="3a4ce157-3b41-4ac5-ba80-8cb24a56dce7" />
+  <component name="JupyterTrust" id="58da25bb-0613-404c-a772-218b915cd9ba" />
   <component name="ProjectFrameBounds" extendedState="6">
     <option name="width" value="1920" />
     <option name="height" value="1030" />
@@ -28,6 +28,7 @@
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
@@ -46,6 +47,7 @@
       <option name="presentableId" value="Default" />
       <updated>1601078091671</updated>
       <workItem from="1601080179780" duration="114000" />
+      <workItem from="1601082495458" duration="332000" />
     </task>
     <servers />
   </component>
