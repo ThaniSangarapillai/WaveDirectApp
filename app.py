@@ -123,6 +123,5 @@ def outages():
 
 @app.route('/users', methods=['GET'])
 def users():
-    users = db.Users
     print(list(users.find({})))
     return jsonify(list(users.find({}, {'_id': False})))
