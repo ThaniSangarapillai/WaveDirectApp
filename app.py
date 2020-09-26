@@ -13,7 +13,6 @@ client = pymongo.MongoClient(
 db = client.WaveDirectBackend
 users = db.Users
 auth = db.Auth
-print(users.find_one())
 
 def check_auth(f):
     @wraps(f)
@@ -81,15 +80,15 @@ def send_json(*args, **kwargs):
 def register():
     content = request.json
 
-    temp_user = users.find_one({"Account #": content['account']})
-    if temp_user == None:
+    temp_user = users.find_one({"Email": content['email']})
+    if temp_user != None:
         if temp_user['created'] == True:
-            return {"error": "01", "message": "already a account created for this account number"}, 401
-        elif temp_user['Email'] != content['email']:
-            return {"error": "01", "message": "Please register using the email associated wi"}, 401
+            return {"error": "01", "message": "Already a account created for this email"}, 401
+
+
     password = sha256_crypt.encrypt(content['password'])
     users.insert_one({
-        "Account #": content['account'],
+        "Account #": users.count() + 10001,
         "First Name": content['first'],
         "Last Name": content['last'],
         "Address": content['address'],
