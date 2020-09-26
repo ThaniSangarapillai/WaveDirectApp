@@ -9,6 +9,12 @@ db = client.WaveDirectBackend
 users = db.Users
 print(users.find_one())
 
+@app.route('/test', methods=['GET'])
+def test():
+    users = db.Users
+    print(users.find_one())
+    return jsonify(users.find_one())
+
 @app.route('/packages', methods=['GET'])
 def packages():
     packages = db.Packages
