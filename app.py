@@ -62,12 +62,6 @@ def check_super(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
-
-@app.route("/")
-def hello_world():
-    return 'Rans is a good person'
-
 @app.route('/json', methods=['GET'])
 @check_auth
 def send_json(*args, **kwargs):
@@ -139,14 +133,6 @@ def logout():
         res = make_response({"message": "ok"}, 200)
         res.set_cookie('x-wave-auth', expires=0)
     return res
-
-
-@app.route('/test', methods=['GET'])
-def test(*args, **kwargs):
-    users = db.Users
-    print(users.find_one())
-    return jsonify(users.find_one())
-
 
 @app.route('/packages/get', methods=['GET'])
 def packages_get(*args, **kwargs):
