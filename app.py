@@ -19,26 +19,37 @@ def check_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         print("in decorator")
-        if "x-wave-auth" not in request.cookies:
+        if "x-wave-auth" not in request.cookies and 'x-wave-auth' not in request.headers:
             print("not logged in")
-            return {"error": "00", "message": "not logged in"}, 403
+            return {"error": "00", "message": "not logged in"}, 401
         else:
             print("hello")
-            get_hash = auth.find_one({"token": request.cookies['x-wave-auth']})
+            temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers['x-wave-auth']
+            get_hash = auth.find_one({"token": temp_token})
             print(get_hash)
             if get_hash is None:
                 print("no entry")
-                return {"error":"00", "message":"not logged in"}, 403
+                return {"error":"00", "message":"not logged in"}, 401
             elif get_hash['time'] < time.time():
                 print("expired")
-                auth.delete_one({"token": request.cookies['x-wave-auth']})
+                auth.delete_one({"token": temp_token})
                 res = make_response({"error": "00", "message": "timed out"}, 403)
                 res.set_cookie('x-wave-auth', expires=0)
                 return res
             else:
                 print("authed")
+                if get_hash['time'] + 86400 > time.time():
+                    print("updating time")
+                    auth.update_one({
+                        '_id': get_hash['_id']
+                    },
+                        {'$set': {'time': int(time.time() + 172800)}})
+                    res = make_response({'auth': get_hash['token']}, 200)
+                    res.set_cookie('x-wave-auth', get_hash['token'], max_age=172800)
         return f(*args, **kwargs)
     return decorated_function
+
+
 
 @app.route("/")
 def hello_world():
@@ -70,11 +81,13 @@ def register():
         "AP_id": content["ap"],
         "Password": password
     })
-    auth_token = str(int(time.time()) + 3600) + secrets.token_urlsafe()
+    user_object = users.find_one({"Email": content['email']})
+    auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
     auth_token = "wave_" + auth_token
-    auth.insert_one({"token": auth_token, "email": content['email'], "time": int(time.time() + 3600)
+    auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800)
     })
     return {'auth': auth_token}, 200, {'Set-Cookie': 'x-wave-auth={}'.format(auth_token)}
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -82,26 +95,29 @@ def login():
  user_object = users.find_one({"Email": content['email']})
  print(user_object)
  if sha256_crypt.verify(content['password'], user_object['Password']):
-     auth_token = str(int(time.time()) + 3600) + secrets.token_urlsafe()
+     auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
      auth_token = "wave_" + auth_token
-     if auth.find_one({'email': content['email']}):
-         auth.delete_one({'email': content['email']})
+     if auth.find_one({"user_id": user_object['_id']}):
+         auth.delete_one({"user_id": user_object['_id']})
 
-     auth.insert_one({"token": auth_token, "email": content['email'], "time": int(time.time() + 3600)
+     auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800)
                       })
      res = make_response({'auth': auth_token}, 200)
-     res.set_cookie('x-wave-auth', auth_token, max_age=3600)
+     res.set_cookie('x-wave-auth', auth_token, max_age=172800)
      return res
+
 
 @app.route('/logout', methods=['POST'])
 def logout():
     content = request.json
-
-    if auth.find_one({'email': content['email']}):
-        auth.delete_one({'email': content['email']})
+    temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
+        'x-wave-auth']
+    if auth.find_one({'token': temp_token}):
+        auth.delete_one({'token': temp_token})
         res = make_response({"message": "ok"}, 200)
         res.set_cookie('x-wave-auth', expires=0)
     return res
+
 
 @app.route('/test', methods=['GET'])
 def test():
@@ -109,20 +125,67 @@ def test():
     print(users.find_one())
     return jsonify(users.find_one())
 
-@app.route('/packages', methods=['GET'])
-def packages():
+
+@app.route('/packages/get', methods=['GET'])
+def packages_get():
     packages = db.Packages
     print(list(packages.find({})))
     return jsonify(list(packages.find({}, {'_id': False})))
 
-@app.route('/outages', methods=['GET'])
-def outages():
+@app.route('/packages/set', methods=["POST"])
+def packages_set():
+    packages = db.Packages
+    content = request.json
+    packages.update_one(
+        {'_id': packages.find_one({'ID':content['ID']})['_id']},
+        {"$set": {
+            'ID' : content['ID'],
+            'Name' : content['Name'],
+            'Data Limit' : content['Data Limit'],
+            'Upload speed (Mbps)' : content['Upload speed (Mbps)'],
+            'Download  speed (Mbps)' : content['Download speed (Mbps)'],
+        }}
+    )
+    return {"message": "ok"}, 200
+
+
+@app.route('/outages/get', methods=['GET'])
+def outages_get():
     outages = db.Outages
     print(list(outages.find({})))
     return jsonify(list(outages.find({}, {'_id': False})))
 
-@app.route('/users', methods=['GET'])
-def users():
-    users = db.Users
-    print(list(users.find({})))
-    return jsonify(list(users.find({}, {'_id': False})))
+
+@app.route('/users/get', methods=['GET'])
+@check_auth
+def users_get():
+    print("before user")
+    temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
+        'x-wave-auth']
+    user = users.find_one(
+        {"_id": auth.find_one({"token": temp_token})['user_id']}
+    , {"_id": False, "Password": False})
+    return jsonify(user)
+
+@app.route('/users/set', methods=['POST'])
+@check_auth
+def users_set():
+    content = request.json
+    print("before user")
+    temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
+        'x-wave-auth']
+    users.update_one(
+        {"_id": auth.find_one({"token": temp_token})['user_id']},
+        {"$set": {
+            "First Name": content['first'],
+            "Last Name": content['last'],
+            "Address": content['address'],
+            "Town": content['town'],
+            "Provice": content['province'],
+            "Country": content['country'],
+            "Email": content['email'],
+            'Phone': content['phone'],
+            'Package_id': content['package'],
+        }}
+    )
+    return {"message": "ok"}, 200
