@@ -50,6 +50,8 @@ def check_auth(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+
 @app.route("/")
 def hello_world():
     return 'Rans is a good person'
@@ -80,9 +82,10 @@ def register():
         "AP_id": content["ap"],
         "Password": password
     })
+    user_object = users.find_one({"Email": content['email']})
     auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
     auth_token = "wave_" + auth_token
-    auth.insert_one({"token": auth_token, "email": content['email'], "time": int(time.time() + 172800)
+    auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800)
     })
     return {'auth': auth_token}, 200, {'Set-Cookie': 'x-wave-auth={}'.format(auth_token)}
 
@@ -95,10 +98,10 @@ def login():
  if sha256_crypt.verify(content['password'], user_object['Password']):
      auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
      auth_token = "wave_" + auth_token
-     if auth.find_one({'email': content['email']}):
-         auth.delete_one({'email': content['email']})
+     if auth.find_one({"user_id": user_object['_id']}):
+         auth.delete_one({"user_id": user_object['_id']})
 
-     auth.insert_one({"token": auth_token, "email": content['email'], "time": int(time.time() + 172800)
+     auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800)
                       })
      res = make_response({'auth': auth_token}, 200)
      res.set_cookie('x-wave-auth', auth_token, max_age=172800)
@@ -108,9 +111,10 @@ def login():
 @app.route('/logout', methods=['POST'])
 def logout():
     content = request.json
-
-    if auth.find_one({'email': content['email']}):
-        auth.delete_one({'email': content['email']})
+    temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
+        'x-wave-auth']
+    if auth.find_one({'token': temp_token}):
+        auth.delete_one({'token': temp_token})
         res = make_response({"message": "ok"}, 200)
         res.set_cookie('x-wave-auth', expires=0)
     return res
@@ -143,17 +147,29 @@ def users_get():
     temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
         'x-wave-auth']
     user = users.find_one(
-        {"Email": auth.find_one({"token": temp_token})['email']}
-    )
+        {"_id": auth.find_one({"token": temp_token})['user_id']}
+    , {"_id": False, "Password": False})
     return jsonify(user)
 
 @app.route('/users/set', methods=['POST'])
 @check_auth
 def users_set():
+    content = request.json
     print("before user")
     temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
         'x-wave-auth']
-    user = users.find_one(
-        {"Email": auth.find_one({"token": temp_token})['email']}
+    users.update_one(
+        {"_id": auth.find_one({"token": temp_token})['user_id']},
+        {"$set": {
+            "First Name": content['first'],
+            "Last Name": content['last'],
+            "Address": content['address'],
+            "Town": content['town'],
+            "Provice": content['province'],
+            "Country": content['country'],
+            "Email": content['email'],
+            'Phone': content['phone'],
+            'Package_id': content['package'],
+        }}
     )
-    return jsonify(user)
+    return {"message": "ok"}, 200
