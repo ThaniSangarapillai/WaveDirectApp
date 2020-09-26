@@ -138,7 +138,7 @@ def outages():
 
 @app.route('/users/get', methods=['GET'])
 @check_auth
-def users_api():
+def users_get():
     print("before user")
     temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
         'x-wave-auth']
@@ -149,7 +149,7 @@ def users_api():
 
 @app.route('/users/set', methods=['POST'])
 @check_auth
-def users_api():
+def users_set():
     print("before user")
     temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
         'x-wave-auth']
