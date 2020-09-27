@@ -113,21 +113,27 @@ def register():
 
 @app.route('/login', methods=['POST'])
 def login():
- content = request.json
- user_object = users.find_one({"Email": content['email']})
- print(user_object)
- if sha256_crypt.verify(content['password'], user_object['Password']):
-     auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
-     auth_token = "wave_" + auth_token
-     if auth.find_one({"user_id": user_object['_id']}):
-         auth.delete_one({"user_id": user_object['_id']})
+    content = request.json
+    print(content)
+    user_object = users.find_one({"Email": content['email']})
+    print(user_object)
+    if user_object == None:
+        res = make_response({'message': "You do not have an account!"}, 400)
+        return res
+    if sha256_crypt.verify(content['password'], user_object['Password']):
+        auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
+        auth_token = "wave_" + auth_token
+        if auth.find_one({"user_id": user_object['_id']}):
+            auth.delete_one({"user_id": user_object['_id']})
 
-     auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800), "super": user_object['super']
+        auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800), "super": user_object['super']
                       })
-     res = make_response({'auth': auth_token}, 200)
-     res.set_cookie('x-wave-auth', auth_token, max_age=172800)
-     return res
-
+        res = make_response({'auth': auth_token}, 200)
+        res.set_cookie('x-wave-auth', auth_token, max_age=172800)
+        return res
+    else:
+        res = make_response({'message': "incorrect"}, 500)
+        return res
 
 @app.route('/logout', methods=['POST'])
 def logout():
