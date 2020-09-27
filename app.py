@@ -5,8 +5,28 @@ import secrets
 from passlib.hash import sha256_crypt
 import time
 from functools import wraps
+from flask_mail import Mail
+from flask_mail import Message
 
 app = Flask(__name__)
+
+app.config['DEBUG'] = False
+app.config['SERVER'] = False
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False
+#app.config['MAIL_DEBUG'] = TRUE
+app.config['MAIL_USERNAME'] = 'noreply.wavedirect@gmail.com'
+app.config['MAIL_PASSWORD'] = 'borderhacks2020'
+app.config['MAIL_DEFAULT_SENDER'] = 'noreply.wavedirect@gmail.com'
+app.config['MAIL_MAX_EMAILS'] = 5
+#app.config['MAIL_SUPPRESS_SEND'] =
+app.config['MAIL_ASCII_ATTACHMENTS'] = False
+
+mail = Mail(app)
+
+
 #hashing = Hashing(app)
 client = pymongo.MongoClient(
    "mongodb+srv://Avatars:QrQnDDetR8cceWAS@cluster0.g15s2.mongodb.net/<dbname>?retryWrites=true&w=majority")
@@ -61,12 +81,6 @@ def check_super(f):
             return {"message": "Not a superadmin"}, 403
         return f(*args, **kwargs)
     return decorated_function
-
-
-
-@app.route("/")
-def hello_world():
-    return 'Rans is a good person'
 
 @app.route('/json', methods=['GET'])
 @check_auth
@@ -145,14 +159,6 @@ def logout():
         res = make_response({"message": "ok"}, 200)
         res.set_cookie('x-wave-auth', expires=0)
     return res
-
-
-@app.route('/test', methods=['GET'])
-def test(*args, **kwargs):
-    users = db.Users
-    print(users.find_one())
-    return jsonify(users.find_one())
-
 
 @app.route('/packages/get', methods=['GET'])
 def packages_get(*args, **kwargs):
@@ -257,3 +263,55 @@ def users_set(*args, **kwargs):
     if kwargs["update_cookie"][0] == True:
         res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
     return res
+
+@app.route('/refer', methods={'POST'})
+@check_auth
+def refer(*args, **kwargs):
+    references = db.References
+    content = request.json
+
+    temp_user = users.find_one({"Email": content['email']})
+    if temp_user != None:
+        return {"error": "01", "message": "Already a account created for this email"}, 401
+
+    temp_reference = references.find_one({"Email Address": content['email']})
+    if temp_reference != None:
+        return {"error": "02", "message": "Reference email already used"}, 401
+
+    temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
+        'x-wave-auth']
+    user = users.find_one(
+        {"_id": auth.find_one({"token": temp_token})['user_id']}
+        , {"_id": False, "Password": False})
+    print("testing")
+    references.insert_one({
+
+        "First Name": content['first'],
+        "Last Name": content['last'],
+        'Phone Number': content['phone'],
+        'Email Address': content['email'],
+        'Referred By': user['Account #'],
+        'Ref First Name': user['First Name'],
+        'Ref Last Name': user['Last Name']
+
+    })
+
+    msg = Message("WaveDirect Referral Program", recipients=["varime5368@yosemail.com"])
+    msg.html = '<p><img src="https://blackburnnews.com/wp-content/uploads/2019/04/Logo-2018.png" alt="" width="300" height="111" /></p><p>Dear {0} {1},</p><p>&nbsp;</p><p>You have been referred by {2} {3} to join our program. The referral process offers you a $10 coupon to our services. If you are interested in this deal or have any questions please email us back or call us at (). Thank you for your time.</p><p>&nbsp;</p><p>Sincerely,&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</p><p>WaveDirect Team.</p><p>&nbsp;</p>'.format(content['first'],content['last'],user['First Name'],user['Last Name'])
+    mail.send(msg)
+
+    return 'Message has been sent!'
+
+    if __name__ == '__main__':
+        app.run()
+
+    res = make_response({"message": "ok"}, 200)
+    if kwargs["update_cookie"][0] == True:
+        res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
+    return res
+
+
+
+
+
+
