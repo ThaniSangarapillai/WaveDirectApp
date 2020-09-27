@@ -291,7 +291,7 @@ def refer(*args, **kwargs):
     })
 
     msg = Message("WaveDirect Referral Program", recipients=["varime5368@yosemail.com"])
-    msg.html = '<p><img src="https://blackburnnews.com/wp-content/uploads/2019/04/Logo-2018.png" alt="" width="300" height="111" /></p><p>Dear (),</p><p>&nbsp;</p><p>You have been referred by () to join our program. The referral process offers you a $10 coupon to our services. If you are interested in this deal or have any questions please email us back or call us at (). Thank you for your time.</p><p>&nbsp;</p><p>Sincerely,&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</p><p>WaveDirect Team.</p><p>&nbsp;</p>'
+    msg.html = '<p><img src="https://blackburnnews.com/wp-content/uploads/2019/04/Logo-2018.png" alt="" width="300" height="111" /></p><p>Dear {0} {1},</p><p>&nbsp;</p><p>You have been referred by {2} {3} to join our program. The referral process offers you a $10 coupon to our services. If you are interested in this deal or have any questions please email us back or call us at (). Thank you for your time.</p><p>&nbsp;</p><p>Sincerely,&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</p><p>WaveDirect Team.</p><p>&nbsp;</p>'.format(content['first'],content['last'],user['First Name'],user['Last Name'])
     mail.send(msg)
 
     return 'Message has been sent!'
