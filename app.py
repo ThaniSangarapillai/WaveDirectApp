@@ -7,6 +7,7 @@ import time
 from functools import wraps
 from flask_mail import Mail
 from flask_mail import Message
+import requests
 
 app = Flask(__name__)
 
@@ -86,7 +87,7 @@ def check_super(f):
 @app.route('/json', methods=['GET'])
 @check_auth
 def send_json(*args, **kwargs):
-    res = make_response({'texts':"hello"})
+    res = make_response({'type':"message"})
     if kwargs["update_cookie"][0] == True:
         res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
     return res
@@ -185,9 +186,8 @@ def login():
         res = make_response({"type": "error",'message': "incorrect"}, 500)
         return res
 
-@app.route('/logout', methods=['POST'])
+@app.route('/logout', methods=['GET'])
 def logout():
-    content = request.json
     temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
         'x-wave-auth']
     if auth.find_one({'token': temp_token}):
@@ -197,10 +197,16 @@ def logout():
     return res
 
 @app.route('/packages/get', methods=['GET'])
+@check_auth
 def packages_get(*args, **kwargs):
     packages = db.Packages
-    print(list(packages.find({})))
-    return jsonify(list(packages.find({}, {'_id': False})))
+    temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
+        'x-wave-auth']
+    user = users.find_one(
+        {"_id": auth.find_one({"token": temp_token})['user_id']}
+    , {"_id": False, "Password": False})
+
+    return jsonify(packages.find_one({'ID': user['Package_id']}, {'_id': False, "ID": False}))
 
 @app.route('/packages/set', methods=["POST"])
 @check_auth
@@ -231,8 +237,18 @@ def packages_set(*args, **kwargs):
 @app.route('/outages/get', methods=['GET'])
 def outages_get(*args, **kwargs):
     outages = db.Outages
-    print(list(outages.find({})))
-    return jsonify(list(outages.find({}, {'_id': False})))
+    temp_token = request.cookies['x-wave-auth'] if 'x-wave-auth' not in request.headers else request.headers[
+        'x-wave-auth']
+    user = users.find_one(
+        {"_id": auth.find_one({"token": temp_token})['user_id']}
+        , {"_id": False, "Password": False})
+    address = ",+".join([user['Address'], user['Town'], user['Provice'], user['Country']])
+    address = address.replace(" ", "+")
+    lat_long_resp = requests.get('https://maps.googleapis.com/maps/api/geocode/json?address={}&key=AIzaSyCYi12-E3LjIqNId5187JeMe4nTtz1Wbvc'.format(address))
+    lat, long = 50, 50
+    if lat_long_resp.status_code == 200:
+        lat, long = lat_long_resp.json()['results'][0]['geometry']['location'].values()
+    return jsonify({"outages": list(outages.find({}, {'_id': False})), "user_location":[lat, long]})
 
 @app.route('/outages/set', methods=['POST'])
 @check_auth
@@ -291,11 +307,10 @@ def users_set(*args, **kwargs):
             "Provice": content['province'],
             "Country": content['country'],
             "Email": content['email'],
-            'Phone': content['phone'],
-            'Package_id': content['package'],
+            'Phone': content['phone']
         }}
     )
-    res = make_response({"message": "ok"}, 200)
+    res = make_response({"type":"message","message": "ok"}, 200)
     if kwargs["update_cookie"][0] == True:
         res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
     return res
@@ -335,7 +350,7 @@ def refer(*args, **kwargs):
 
     })
 
-    msg = Message("WaveDirect Referral Program", recipients=["katigi3851@qatw.net"])
+    msg = Message("WaveDirect Referral Program", recipients=["thanigajan@gmail.com"])
     msg.html = '<p><img src="https://blackburnnews.com/wp-content/uploads/2019/04/Logo-2018.png" alt="" width="300" height="111" /></p><p>Dear {0} {1},</p><p>&nbsp;</p><p>You have been referred by {2} {3} to join our program. The referral process offers you a $10 coupon to our services. If you are interested in this deal or have any questions please email us back or call us at (). Thank you for your time.</p><p>&nbsp;</p><p>Sincerely,&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</p><p>WaveDirect Team.</p><p>&nbsp;</p>'.format(content['first'],content['last'],user['First Name'],user['Last Name'])
     mail.send(msg)
 
@@ -343,7 +358,7 @@ def refer(*args, **kwargs):
     if __name__ == '__main__':
         app.run()
 
-    res = make_response({"message": "ok"}, 200)
+    res = make_response({"message": "Sucessfully Referred. Your friend will receive an email."}, 200)
     if kwargs["update_cookie"][0] == True:
         res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
     return res
