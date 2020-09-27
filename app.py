@@ -277,7 +277,9 @@ def refer(*args, **kwargs):
     user = users.find_one(
         {"_id": auth.find_one({"token": temp_token})['user_id']}
         , {"_id": False, "Password": False})
-    print("testing")
+
+    auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
+
     references.insert_one({
 
         "First Name": content['first'],
@@ -286,7 +288,8 @@ def refer(*args, **kwargs):
         'Email Address': content['email'],
         'Referred By': user['Account #'],
         'Ref First Name': user['First Name'],
-        'Ref Last Name': user['Last Name']
+        'Ref Last Name': user['Last Name'],
+        'Email Token': auth_token,
 
     })
 
