@@ -308,7 +308,7 @@ def refer(*args, **kwargs):
 
     temp_user = users.find_one({"Email": content['email']})
     if temp_user != None:
-        return {"error": "01", "message": "Already a account created for this email"}, 401
+        return {"error": "01", "message": "Already an account created for this email"}, 401
 
     temp_reference = references.find_one({"Email Address": content['email']})
     if temp_reference != None:
