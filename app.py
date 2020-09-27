@@ -26,6 +26,7 @@ app.config['MAIL_ASCII_ATTACHMENTS'] = False
 
 mail = Mail(app)
 
+base_url = "http://192.168.0.119:5000"
 
 #hashing = Hashing(app)
 client = pymongo.MongoClient(
@@ -90,19 +91,40 @@ def send_json(*args, **kwargs):
         res.set_cookie('x-wave-auth', kwargs['update_cookie'][1], max_age=172800)
     return res
 
+@app.route('/verify', methods=['GET'])
+def verify():
+    try:
+        verification_token = request.args.get("token")
+        temp_user = users.find_one({"verification": verification_token})
+    except:
+        return {"message": "invalid token, please try again"}, 404
+
+
+
+    if temp_user == None:
+        return {"message": "invalid token, please try again"}, 404
+    else:
+        users.update_one({"verification": verification_token}, {"$set":{"verification":"","verified": True}})
+
+    return "Successfully verified! You may now login from the app.", 200
+
+
 @app.route('/register', methods=['POST'])
 def register():
     content = request.json
 
     temp_user = users.find_one({"Email": content['email']})
-    if temp_user != None:
-        if temp_user['created'] == True:
-            return {"error": "01", "message": "Already a account created for this email"}, 401
+    users.update_many({}, {"$set": {"verified": False}})
+    if temp_user == None:
+        return {"type": "error", "message":"You currently do not have an account with us."}
+    if temp_user['created'] == True:
+        return {"type": "error", "message": "Already a e-account created for this email"}, 401
 
 
     password = sha256_crypt.encrypt(content['password'])
-    users.insert_one({
-        "Account #": users.count() + 10001,
+    verification_token = secrets.token_urlsafe()
+    users.update_one(temp_user,{"$set":{
+        "Account #": temp_user['Account #'],
         "First Name": content['first'],
         "Last Name": content['last'],
         "Address": content['address'],
@@ -111,18 +133,26 @@ def register():
         "Country": content['country'],
         "Email": content['email'],
         'Phone': content['phone'],
-        'Package_id': content['package'],
-        "AP_id": content["ap"],
+        'Package_id': temp_user['Package_id'],
+        "AP_id": temp_user["AP_id"],
         "Password": password,
         "super": False,
-        "created": True
-    })
-    user_object = users.find_one({"Email": content['email']})
-    auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
-    auth_token = "wave_" + auth_token
-    auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800), "super": user_object['super']
-    })
-    return {'auth': auth_token}, 200, {'Set-Cookie': 'x-wave-auth={}'.format(auth_token)}
+        "created": True,
+        "verified": False,
+        "verification": verification_token
+    }})
+
+    msg = Message("WaveDirect Account Verification", recipients=["thanigajan.sangarapillai@ontariotechu.net"])
+    msg.html = '<p><img src="https://blackburnnews.com/wp-content/uploads/2019/04/Logo-2018.png" alt="" width="300" height="111" /></p><p>Dear {0} {1},</p><p>&nbsp;</p><p>Please click the following link to verify your account: {2}.</p><p>&nbsp;</p><p>Sincerely,&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</p><p>WaveDirect Team.</p><p>&nbsp;</p>'.format(
+        content['first'], content['last'], base_url + "/verify?token=" + verification_token)
+    mail.send(msg)
+
+    # user_object = users.find_one({"Email": content['email']})
+    # auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
+    # auth_token = "wave_" + auth_token
+    # auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800), "super": user_object['super']
+    # })
+    return {'type':"message", 'message': "The verification email has been sent. Please verify your email before logging in."}, 200
 
 
 @app.route('/login', methods=['POST'])
@@ -132,7 +162,13 @@ def login():
     user_object = users.find_one({"Email": content['email']})
     print(user_object)
     if user_object == None:
-        res = make_response({'message': "You do not have an account!"}, 400)
+        res = make_response({"type": "error",'message': "You do not have an account with us!"}, 400)
+        return res
+    if user_object['created'] == False:
+        res = make_response({"type": "error",'message': "You do not have an e-account created!"}, 400)
+        return res
+    if user_object['verified'] == False:
+        res = make_response({"type": "error",'message': "You have not verified your account!"}, 400)
         return res
     if sha256_crypt.verify(content['password'], user_object['Password']):
         auth_token = str(int(time.time()) + 172800) + secrets.token_urlsafe()
@@ -142,11 +178,11 @@ def login():
 
         auth.insert_one({"token": auth_token, "user_id": user_object['_id'], "time": int(time.time() + 172800), "super": user_object['super']
                       })
-        res = make_response({'auth': auth_token}, 200)
+        res = make_response({"type": "message",'auth': auth_token}, 200)
         res.set_cookie('x-wave-auth', auth_token, max_age=172800)
         return res
     else:
-        res = make_response({'message': "incorrect"}, 500)
+        res = make_response({"type": "error",'message': "incorrect"}, 500)
         return res
 
 @app.route('/logout', methods=['POST'])
